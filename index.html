@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>星火守衛：符文林地 | Ember Warden: Runewood</title>
+  <link rel="icon" type="image/png" href="assets/title_crest.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;800&family=Noto+Serif+TC:wght@600;700;800&display=swap"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="viewport">
+    <div id="game-stage">
+      <canvas id="gameCanvas" width="1280" height="720"></canvas>
+
+      <!-- In-Game HUD -->
+      <div id="hud" class="hidden">
+        <!-- Top Left: Vitals, Abilities, Buffs -->
+        <div class="hud-left">
+          <div class="stone-frame hud-card">
+            <div class="stone-inner">
+              <div class="vital-row">
+                <span class="hud-label">生命精魄</span>
+                <span id="hp-text" class="hud-num">100 / 100</span>
+              </div>
+              <div class="bar-trough hp-trough">
+                <div id="hp-bar" class="bar-fill hp-fill"></div>
+              </div>
+
+              <div class="ability-grid">
+                <div class="ability-slot">
+                  <div class="ability-head">
+                    <span class="hud-label-sm">秘法瞬步</span>
+                    <span id="blink-status" class="hud-tag ready">就緒</span>
+                  </div>
+                  <div class="bar-trough sm">
+                    <div id="blink-bar" class="bar-fill cyan-fill"></div>
+                  </div>
+                </div>
+
+                <div class="ability-slot">
+                  <div class="ability-head">
+                    <span class="hud-label-sm">星火連爆</span>
+                    <span id="burst-count" class="hud-tag gold">2 / 2</span>
+                  </div>
+                  <div class="charge-pips">
+                    <div class="pip-trough"><div id="burst-pip-0" class="pip-fill"></div></div>
+                    <div class="pip-trough"><div id="burst-pip-1" class="pip-fill"></div></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="shield-row">
+                <span class="hud-label-sm">秘法護盾</span>
+                <div id="shield-icons" class="shield-icons">
+                  <div class="shield-pip" id="shield-pip-0">
+                    <img src="assets/pickup_shield.png" alt="護盾" />
+                  </div>
+                  <div class="shield-pip" id="shield-pip-1">
+                    <img src="assets/pickup_shield.png" alt="護盾" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div id="buff-badges" class="buff-badges"></div>
+          <div id="hud-blessings" class="hud-blessings hidden" aria-label="已覺醒符文祝福"></div>
+        </div>
+
+        <!-- Top Center: Wave Status / Boss Bar -->
+        <div class="hud-center">
+          <div id="wave-pill" class="stone-frame wave-pill">
+            <div class="stone-inner wave-inner">
+              <span class="wave-title">第 <strong id="wave-num">1</strong> 波</span>
+              <span class="wave-sep">｜</span>
+              <span class="wave-remain">剩餘魔物 <strong id="enemies-left">0</strong></span>
+            </div>
+          </div>
+
+          <div id="boss-hud" class="stone-frame boss-hud hidden">
+            <div class="stone-inner boss-inner">
+              <div class="boss-header">
+                <span class="boss-name">枯棘古樹王</span>
+                <span id="boss-phase-tag" class="boss-phase">第一階段</span>
+                <span id="boss-hp-text" class="hud-num">1400 / 1400</span>
+              </div>
+              <div class="bar-trough boss-trough">
+                <div id="boss-hp-bar" class="bar-fill boss-fill"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Top Right: Score, Combo, Controls -->
+        <div class="hud-right">
+          <div class="stone-frame score-panel">
+            <div class="stone-inner score-inner">
+              <div class="score-line">
+                <span class="hud-label-sm">淨化分數</span>
+                <span id="score-num" class="score-val">0</span>
+              </div>
+              <div class="score-line sub">
+                <span class="hud-label-sm">歷史最高</span>
+                <span id="best-num" class="best-val">0</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="hud-actions">
+            <button id="mute-btn" class="stone-btn icon-btn" title="音效開關 (M)" aria-label="音效開關" aria-pressed="false">
+              <svg class="icon-svg icon-sound-on" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M11 5L6.5 9H3.5v6h3L11 19V5z" fill="currentColor" />
+                <path d="M15.2 8.8a4.8 4.8 0 0 1 0 6.4M18 6a8.6 8.6 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+              </svg>
+              <svg class="icon-svg icon-sound-off" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M11 5L6.5 9H3.5v6h3L11 19V5z" fill="currentColor" opacity="0.65" />
+                <path d="M15.5 9l5 6M20.5 9l-5 6" fill="none" stroke="#FFB347" stroke-width="2.1" stroke-linecap="round" />
+              </svg>
+            </button>
+            <button id="pause-btn" class="stone-btn icon-btn" title="暫停遊戲 (P)" aria-label="暫停遊戲">
+              <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="6.5" y="5" width="3.8" height="14" rx="0.8" fill="currentColor" />
+                <rect x="13.7" y="5" width="3.8" height="14" rx="0.8" fill="currentColor" />
+              </svg>
+            </button>
+          </div>
+
+          <div id="combo-box" class="stone-frame combo-box hidden">
+            <div class="stone-inner combo-inner">
+              <div class="combo-top">
+                <span id="combo-count" class="combo-count">0 連擊</span>
+                <span id="combo-mult" class="combo-mult">x1.0</span>
+              </div>
+              <div class="bar-trough xs">
+                <div id="combo-bar" class="bar-fill gold-fill"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bottom Center: XP Bar -->
+        <div class="hud-bottom">
+          <div class="stone-frame xp-panel">
+            <div class="stone-inner xp-inner">
+              <span id="level-badge" class="level-badge">LV. 1</span>
+              <div class="bar-trough xp-trough">
+                <div id="xp-bar" class="bar-fill xp-fill"></div>
+              </div>
+              <span id="xp-text" class="xp-text">0 / 100</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Wave / Boss Announcement Banner -->
+      <div id="wave-banner" class="wave-banner hidden">
+        <div class="stone-frame banner-frame">
+          <div class="stone-inner banner-inner">
+            <div id="banner-sub" class="banner-sub">林地警報</div>
+            <div id="banner-title" class="banner-title">第 1 波來襲</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Title Screen -->
+      <div id="title-screen" class="overlay title-overlay">
+        <div class="title-vignette"></div>
+        <div class="stone-frame modal-panel title-panel">
+          <div class="stone-inner modal-inner">
+            <div class="crest-wrap">
+              <img src="assets/title_crest.png" alt="星火守衛徽章" class="title-crest" />
+            </div>
+            <div class="eyebrow">EMBER WARDEN : RUNEWOOD</div>
+            <h1 class="game-title">星火守衛：符文林地</h1>
+            <p class="game-desc">
+              化身守護月夜古林的秘法遊俠，引動星火提燈與符文之力，<br />
+              抵禦腐化魔潮、收集魔力碎晶，淨化盤踞林地深處的枯棘古樹王。
+            </p>
+
+            <div class="record-strip">
+              <div class="record-item">
+                <span class="rec-label">歷史最高分數</span>
+                <span id="start-best-score" class="rec-val">0</span>
+              </div>
+              <div class="record-divider"></div>
+              <div class="record-item">
+                <span class="rec-label">最高抵達波次</span>
+                <span id="start-best-wave" class="rec-val">第 0 波</span>
+              </div>
+            </div>
+
+            <div class="controls-grid">
+              <div class="ctrl-item"><span class="ctrl-keys"><kbd>W A S D</kbd> / <kbd>方向鍵</kbd></span><span>林地走位</span></div>
+              <div class="ctrl-item"><span class="ctrl-keys"><kbd>滑鼠</kbd> 瞄準（自動施法）· <kbd>左鍵</kbd></span><span>星火連爆</span></div>
+              <div class="ctrl-item"><span class="ctrl-keys"><kbd>Space</kbd> / <kbd>Shift</kbd> / <kbd>右鍵</kbd></span><span>秘法瞬步</span></div>
+              <div class="ctrl-item"><span class="ctrl-keys"><kbd>P</kbd> / <kbd>Esc</kbd> 暫停 · <kbd>M</kbd></span><span>靜音切換</span></div>
+            </div>
+
+            <button id="start-btn" class="brass-cta">開始守護</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Level-Up Rune Blessing Draft Modal -->
+      <div id="levelup-screen" class="overlay hidden">
+        <div class="stone-frame modal-panel levelup-panel">
+          <div class="stone-inner modal-inner">
+            <div class="eyebrow cyan">RUNE AWAKENING</div>
+            <h2 class="modal-title">符文祝福覺醒</h2>
+            <p class="modal-sub">等級提升至 <strong id="levelup-lv">LV. 2</strong>，請選擇一項符文祝福（快捷鍵 <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd>）</p>
+            <div id="blessing-cards" class="blessing-grid"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pause Modal -->
+      <div id="pause-screen" class="overlay hidden">
+        <div class="stone-frame modal-panel compact-panel pause-panel">
+          <div class="stone-inner modal-inner">
+            <div class="eyebrow">SANCTUARY PAUSED</div>
+            <h2 class="modal-title">遊戲暫停</h2>
+            <p class="modal-sub">按 <kbd>P</kbd> 或 <kbd>Esc</kbd> 立即返回戰場</p>
+
+            <div class="toggle-list">
+              <button id="autocast-toggle" class="stone-toggle">
+                <span>自動施法</span>
+                <strong id="autocast-state" class="state-on">開啟</strong>
+              </button>
+              <button id="pause-mute-toggle" class="stone-toggle">
+                <span>遊戲音效</span>
+                <strong id="pause-mute-state" class="state-on">開啟</strong>
+              </button>
+            </div>
+
+            <div class="pause-blessings-box">
+              <div class="pause-section-head">
+                <span>已覺醒符文祝福</span>
+                <span id="pause-blessings-count" class="pause-blessings-count">0 項</span>
+              </div>
+              <div id="pause-blessings-grid" class="pause-blessings-grid">
+                <div class="pause-blessing-empty">尚未覺醒符文祝福</div>
+              </div>
+            </div>
+
+            <div class="pause-tips">
+              <div>• 自動施法開啟時：滑鼠左鍵施放「星火連爆」</div>
+              <div>• 自動施法關閉時：左鍵發射主武器，<kbd>E</kbd> 施放連爆</div>
+            </div>
+
+            <div class="btn-col">
+              <button id="resume-btn" class="brass-cta">繼續戰鬥</button>
+              <div class="btn-row">
+                <button id="restart-pause-btn" class="stone-btn">重新開始</button>
+                <button id="home-pause-btn" class="stone-btn">返回標題</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Victory / Game Over Modal -->
+      <div id="end-screen" class="overlay hidden">
+        <div class="stone-frame modal-panel end-panel">
+          <div class="stone-inner modal-inner">
+            <div id="end-eyebrow" class="eyebrow">GUARDIAN FALLEN</div>
+            <h2 id="end-title" class="modal-title">星火熄滅・守護終止</h2>
+            <p id="end-desc" class="modal-sub">林地暫時陷入暗影，但星火終將重燃。</p>
+
+            <div id="new-record-badge" class="new-record hidden">★ 締造全新守護紀錄！ ★</div>
+
+            <div class="stats-grid">
+              <div class="stat-tile">
+                <span class="stat-k">最終分數</span>
+                <strong id="end-score" class="stat-v gold">0</strong>
+              </div>
+              <div class="stat-tile">
+                <span class="stat-k">抵達波次</span>
+                <strong id="end-wave" class="stat-v">第 1 波</strong>
+              </div>
+              <div class="stat-tile">
+                <span class="stat-k">擊敗魔物</span>
+                <strong id="end-kills" class="stat-v">0</strong>
+              </div>
+              <div class="stat-tile">
+                <span class="stat-k">最高連擊</span>
+                <strong id="end-combo" class="stat-v cyan">0 連擊</strong>
+              </div>
+              <div class="stat-tile wide">
+                <span class="stat-k">達成等級</span>
+                <strong id="end-level" class="stat-v">LV. 1</strong>
+              </div>
+            </div>
+
+            <div class="btn-row end-actions">
+              <button id="endless-btn" class="brass-cta hidden">進入無盡挑戰</button>
+              <button id="retry-btn" class="brass-cta">再戰一場</button>
+              <button id="home-end-btn" class="stone-btn">返回標題</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
